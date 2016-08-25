@@ -1,13 +1,13 @@
 /**
- * Copyright 2015 Yahoo! Inc. Licensed under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
- * Unless required by applicable law or agreed to in writing, software distributed
- * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
- * CONDITIONS OF ANY KIND, either express or implied. See the License for the
- * specific language governing permissions and limitations under the License.
- * See accompanying LICENSE file.
- */
+* Copyright 2015 Yahoo! Inc. Licensed under the Apache License, Version 2.0 (the
+* "License"); you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+* Unless required by applicable law or agreed to in writing, software distributed
+* under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+* CONDITIONS OF ANY KIND, either express or implied. See the License for the
+* specific language governing permissions and limitations under the License.
+* See accompanying LICENSE file.
+*/
 package com.yahoo.druid.hadoop;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -36,6 +36,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 //TODO: DatasourceInputSplit.getLocations() returns empty array which might mess up Pig loader
 // test that it works w/o that returning new String[]{"xxx"}
@@ -80,28 +81,37 @@ public class DruidInputFormat extends DatasourceInputFormat
     );
     logger.info("schema = " + schemaStr);
 
-    DatasourceIngestionSpec ingestionSpec = HadoopDruidIndexerConfig.jsonMapper.readValue(
+    DatasourceIngestionSpec ingestionSpec = HadoopDruidIndexerConfig.JSON_MAPPER.readValue(
         schemaStr,
         DatasourceIngestionSpec.class
     );
-    String segmentsStr = getSegmentsToLoad(
-        ingestionSpec.getDataSource(),
-        ingestionSpec.getInterval(),
-        overlordUrl
-    );
-    logger.info("segments list received from overlord = [%s]", segmentsStr);
+    List<DataSegment> segmentsList = new ArrayList<DataSegment>();
+    for (Interval interval : ingestionSpec.getIntervals()) {
+      String segmentsStr = getSegmentsToLoad(
+          ingestionSpec.getDataSource(),
+          interval,
+          overlordUrl
+      );
+      logger.info(String.format("segments list received from overlord = %s", segmentsStr));
 
-    List<DataSegment> segmentsList = HadoopDruidIndexerConfig.jsonMapper.readValue(
-        segmentsStr,
-        new TypeReference<List<DataSegment>>()
-        {
-        }
-    );
+      Map<String, List<DataSegment>> resMap = HadoopDruidIndexerConfig.JSON_MAPPER.readValue(
+          segmentsStr,
+          new TypeReference<Map<String,List<DataSegment>>>()
+          {
+          }
+      );
+      segmentsList.addAll(resMap.get("result"));
+    }
+
     VersionedIntervalTimeline<String, DataSegment> timeline = new VersionedIntervalTimeline<>(Ordering.natural());
     for (DataSegment segment : segmentsList) {
       timeline.add(segment.getInterval(), segment.getVersion(), segment.getShardSpec().createChunk(segment));
     }
-    final List<TimelineObjectHolder<String, DataSegment>> timeLineSegments = timeline.lookup(ingestionSpec.getInterval());
+    List<TimelineObjectHolder<String, DataSegment>> timeLineSegments = new ArrayList<TimelineObjectHolder<String, DataSegment>>();
+    for (Interval interval : ingestionSpec.getIntervals()) {
+      timeLineSegments.addAll(timeline.lookup(interval));
+    }
+
     final List<WindowedDataSegment> windowedSegments = new ArrayList<>();
     for (TimelineObjectHolder<String, DataSegment> holder : timeLineSegments) {
       for (PartitionChunk<DataSegment> chunk : holder.getObject()) {
@@ -109,7 +119,7 @@ public class DruidInputFormat extends DatasourceInputFormat
       }
     }
 
-    conf.set(CONF_INPUT_SEGMENTS, HadoopDruidIndexerConfig.jsonMapper.writeValueAsString(windowedSegments));
+    conf.set(CONF_INPUT_SEGMENTS, HadoopDruidIndexerConfig.JSON_MAPPER.writeValueAsString(windowedSegments));
 
     return super.getSplits(context);
   }

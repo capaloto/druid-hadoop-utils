@@ -18,6 +18,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.hadoop.io.NullWritable;
 import org.joda.time.DateTime;
 
 import java.util.Map;
@@ -62,8 +63,8 @@ public class SamplePrintMRJob extends Configured implements Tool
     job.setMapperClass(DruidPrintMapper.class);
     job.setNumReduceTasks(0);
     
-    job.setOutputKeyClass(DateTime.class);
-    job.setOutputValueClass(Map.class);
+    job.setOutputKeyClass(NullWritable.class);
+    job.setOutputValueClass(NullWritable.class);
 
     job.setInputFormatClass(DruidInputFormat.class);
     job.setOutputFormatClass(NullOutputFormat.class);

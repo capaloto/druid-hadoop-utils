@@ -10,19 +10,15 @@
 */
 package com.yahoo.druid.hadoop.example;
 
-import java.util.Map;
-
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.io.NullWritable;
+import io.druid.indexer.hadoop.SegmentInputRow;
 import org.joda.time.DateTime;
 
-public class DruidPrintMapper extends Mapper<DateTime, Map<String, Object>, DateTime, Map<String, Object>>
+public class DruidPrintMapper extends Mapper<NullWritable, SegmentInputRow, NullWritable, NullWritable>
 {
   @Override
-  public void map(DateTime key, Map<String, Object> value, Context context) {
-    System.out.print(key + " , ");
-    for(Map.Entry<String,Object> e : value.entrySet()) {
-      System.out.print(e.getKey()+"="+e.getValue() + " , ");
-    }
-    System.out.println("");
+  public void map(NullWritable key, SegmentInputRow value, Context context) {
+    System.out.println(value+"\n");
   }
 }
